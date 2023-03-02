@@ -31,21 +31,20 @@ const PersonForm = ({ onSubmit, nameValue, nameOnChange, numberValue, numberOnCh
   )
 }
 
-const Persons = ({ persons, filter }) => {
-  const filteredPersons = filter
-    ? persons.filter(person => person.name.toLowerCase().includes(filter.toLowerCase()))
-    : persons
-
+const Persons = ({ persons, handleDelete }) => {
   return (
     <div>
-      {filteredPersons.map(person =>
+      {persons.map(person =>
         <div key={person.id}>
           {person.name} {person.number}
+          <button onClick={() => handleDelete(person.id)}>delete</button>
         </div>
       )}
     </div>
   )
 }
+
+ 
 
 const App = () => {
   const [ persons, setPersons ] = useState([]) 
@@ -66,16 +65,44 @@ const App = () => {
 
   const addPerson = (event) => {
     event.preventDefault()
+  const existingPerson = persons.find(person => person.name === newName)
+  if (existingPerson) {
+    if (existingPerson.number === newNumber) {
+      alert(`${newName} is already added to phonebook`)
+    } else {
+      if (window.confirm(`${newName} is already added to phonebook, replace the old number with a new one?`)) {
+        const updatedPerson = { ...existingPerson, number: newNumber }
+        axios.put(`http://localhost:3001/persons/${existingPerson.id}`, updatedPerson)
+          .then(response => {
+            setPersons(persons.map(person => person.id !== existingPerson.id ? person : response.data))
+            setNewName('')
+            setNewNumber('')
+          })
+      }
+    }
+  } else {
     const personObject = {
       name: newName,
       number: newNumber,
-      id: persons.length + 1,
     }
-    setPersons(persons.concat(personObject))
-    setNewName('')
-    setNewNumber('')
+    axios.post('http://localhost:3001/persons', personObject)
+      .then(response => {
+        setPersons(persons.concat(response.data))
+        setNewName('')
+        setNewNumber('')
+      })
+  }
   }
 
+  const deletePerson = (id) => {
+    if (window.confirm('Are you sure you want to delete this person?')) {
+      axios
+        .delete(`http://localhost:3001/persons/${id}`)
+        .then(response => {
+          setPersons(persons.filter(person => person.id !== id))
+        })
+    }
+  }
   const handleNameChange = (event) => {
     setNewName(event.target.value)
   }
@@ -89,6 +116,7 @@ const App = () => {
   }
 
   return (
+    
     <div>
       <h2>Phonebook</h2>
       <Filter value={filter} onChange={handleFilterChange} />
@@ -100,8 +128,8 @@ const App = () => {
         numberValue={newNumber}
         numberOnChange={handleNumberChange}
       />
-      <h3>Numbers</h3>
-      <Persons persons={persons} filter={filter} />
+      <h3>Numbers</h3> 
+      <Persons persons={persons} handleDelete={deletePerson} />
     </div>
   )
 }
